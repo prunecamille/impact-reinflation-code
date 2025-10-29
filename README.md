@@ -65,7 +65,7 @@ planet = Planet(
     mass=1.0,           # Earth masses
     radius=1.0,          # Earth radii
     star=star,
-    a=0.1,              # AU
+    a=0.01,              # AU
     outgassing_rate=6.5e-4,   # kg/m²/yr
     escape_efficiency=1e-2
 )
