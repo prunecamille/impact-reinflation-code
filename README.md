@@ -13,11 +13,10 @@ The model tracks the transition between **inflated** (gas phase) and **collapsed
 
 ## Features
 
-- Simple, clean API for setting up planetary and stellar systems
+- API for setting up planetary and stellar systems
 - Configurable parameters: erosion efficiency, outgassing rates, impact rates
 - Single-run and Monte Carlo simulation capabilities
 - Built-in plotting utilities for visualization
-- No flare functionality (simplified for publication)
 
 ## Installation
 
@@ -227,7 +226,7 @@ Simulations save results as numpy `.npz` files containing:
 ## References
 
 - Wordsworth et al. (2010): CO₂ condensation thermodynamics
-- Escape efficiency parameterization based on XUV-driven atmospheric loss
+- Escape efficiency parameterization based on XUV-driven atmospheric loss (e.g. Zahnle & Catling 2017)
 
 ## License
 
