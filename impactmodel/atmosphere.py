@@ -8,7 +8,7 @@ It handles transitions between inflated and collapsed states.
 
 from typing import Optional
 import numpy as np
-from .constants import LATENT_HEAT_CO2, CP_CO2, T_SUBLIMATION_CO2, KB
+from .constants import LATENT_HEAT_CO2, CP_CO2, T_SUBLIMATION_CO2
 
 
 class Atmosphere:
@@ -40,6 +40,7 @@ class Atmosphere:
             planet: Planet object this atmosphere belongs to
             pressure0: Initial pressure in bar
             condensed_volatile_thickness0: Initial condensed volatile thickness in m
+            (Like if you had a layer of ice on the nightside)
             critical_pressure: Critical pressure in bar. If None, will be calculated.
         """
         self.initialparams = {'pressure': pressure0, 

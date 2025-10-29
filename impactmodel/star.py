@@ -5,9 +5,8 @@ This module provides the Star class, which models stellar properties with a
 focus on XUV emission and its evolution over time due to stellar activity decay.
 """
 
-from typing import Optional
 import numpy as np
-from .constants import L_SUN, R_SUN, SIGMA_BOLTZMANN
+from .constants import L_SUN, R_SUN, M_SUN, SECONDS_PER_YEAR
 
 
 class Star:
@@ -63,6 +62,21 @@ class Star:
             planet (Planet): The planet to assign
         """
         self.planets.append(planet)
+
+    def compute_tsat_Pass2025(self, mass: float) -> None:
+        """
+        Compute the saturation time based on the Pass2025 model.
+        This requires a stellar mass in solar masses, and
+        is based on mid-to-late M-type stars.
+
+        Args:
+            mass (float): Stellar mass in solar masses
+
+        Returns:
+            None
+        """
+        self.t_sat = 5.9 - 15.4 * (mass/M_SUN)
+        print("New saturation time computed based on Pass2025 model for mid-to-late M-type stars: {self.t_sat:.2e} years")
     
     def XUV_emission(self, t: float) -> float:
         """
@@ -120,13 +134,12 @@ class Star:
             float: Integrated XUV flux in J/m²
         """
         if t <= self.t_sat:
-            integral = self.L_XUV0 * t * (365.25 * 24 * 60 * 60)  # Convert years to seconds
+            integral = self.L_XUV0 * t * SECONDS_PER_YEAR  # Convert years to seconds
         else:
             # For t > t_sat, integrate the power law decay analytically
             # The integral of (t/t_sat)^(-1.23) from t_sat to t is evaluated
-            seconds_per_year = 365.25 * 24 * 60 * 60
-            integral = self.L_XUV0 * self.t_sat * seconds_per_year + \
-                      self.L_XUV0 * self.t_sat * seconds_per_year * \
+            integral = self.L_XUV0 * self.t_sat * SECONDS_PER_YEAR + \
+                      self.L_XUV0 * self.t_sat * SECONDS_PER_YEAR * \
                       (1 - (t/self.t_sat)**-0.23) / 0.23
             
         return integral / (4 * np.pi * planet.a**2)

@@ -22,7 +22,7 @@ planet = Planet(
     mass=1.0,
     radius=1.0,
     star=star,
-    a=0.1,
+    a=0.05,
     outgassing_rate=CURRENT_EARTH_OUTGASSING_RATE,
     escape_efficiency=1e-2
 )

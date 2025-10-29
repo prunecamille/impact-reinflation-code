@@ -39,7 +39,7 @@ class Planet:
     """
     
     def __init__(self, name: str, mass: float, radius: float, star: 'Star', 
-                 a: float, outgassing_rate: float = 1e-2, escape_efficiency: float = 0.1):
+                 a: float, outgassing_rate: float = 0.1*CURRENT_EARTH_OUTGASSING_RATE, escape_efficiency: float = 0.1):
         """
         Initialize a Planet instance.
         
@@ -49,7 +49,7 @@ class Planet:
             radius (float): Planet radius in Earth radii
             star (Star): Associated star
             a (float): Semi-major axis in AU
-            outgassing_rate (float, optional): Outgassing rate in kg/m²/yr. Defaults to 1e-2.
+            outgassing_rate (float, optional): Outgassing rate in kg/m²/yr. Defaults to 0.1*CURRENT_EARTH_OUTGASSING_RATE.
             escape_efficiency (float, optional): Escape efficiency. Defaults to 0.1.
             
         Raises:
@@ -154,20 +154,22 @@ class Planet:
                        self.atmosphere.volatile_cp * 
                        self.atmosphere.volatile_sublimation_temp)
         
-        # Impact energy needed (efficiency of 0.5)
+        # Impact energy needed 
+        # (efficiency of 0.5 : this is hardcoded, but feel free to change it,
+        # it will just change the impactor size)
         E_impact = 2 * E_vol
         
         # Impact mass needed
         m_impact = 2 * E_impact / self.escape_velocity**2
         
-        # Impactor radius
+        # Impactor radius (hardcoded density of 3000 kg/m^3 for diameter conversion)
         r_impact = (3 * m_impact / (4 * np.pi * 3000))**(1/3)
         r_impact = np.ceil(r_impact)
         
-        # Impactor diameter (convert from m to km and round up)
+        # Impactor diameter (convert from m to km and round up just in case)
         d_impact = 2 * np.ceil(r_impact * 1e-3)
         
-        # Add the impactor
+        # Add the impactor to the planet
         self.add_impactor(d_impact, impact_rate, self.escape_velocity)
         
         return d_impact
@@ -199,7 +201,9 @@ class Planet:
         Calculate the outgassed mass flux at a given time.
         
         Args:
-            time (float): Time in years
+            time (float): Time in years. This is not used
+            for now but could be used to implement time-dependent
+            outgassing rates.
             
         Returns:
             float: Outgassed mass flux in kg/yr
@@ -219,21 +223,22 @@ class Planet:
         if self.atmosphere is None:
             return
         
-        # Calculate mass volatilized using 50% of kinetic energy
+        # Calculate mass vaporised using 50% of kinetic energy
+        # (efficiency of 0.5 : again, hardcoded, sorry about that)
         impact_energy = 0.5 * impactor.kinetic_energy
-        mass_volatilized = impact_energy / (
+        mass_vaporised = impact_energy / (
             self.atmosphere.volatile_latent_heat + 
             self.atmosphere.volatile_cp * 
-            self.atmosphere.volatile_sublimation_temp
+            self.atmosphere.volatile_sublimation_temp # if you wanted to add a nightside temp, do it here for delta_T
         )
         
-        self.atmosphere.process_impact(mass_volatilized)
+        self.atmosphere.process_impact(mass_vaporised)
     
     def calculate_co2_condensation_temp(self, pressure: float) -> float:
         """
         Calculate the CO2 condensation temperature as a function of pressure.
         
-        Based on Wordsworth et al. (2010b) CO2 condensation data.
+        Based on Wordsworth et al. (2010b).
         
         Args:
             pressure (float): Pressure in Pa
@@ -242,18 +247,22 @@ class Planet:
             float: Condensation temperature in K
         """
         if pressure < CO2_TRIPLE_POINT_PRESSURE:
-            # Below triple point
+            # Below triple point (as given in Wordsworth et al. (2010b))
             return -3167.8 / (np.log(0.01 * pressure) - 23.23)
         else:
-            # Above triple point
+            # Above triple point (as given in Wordsworth et al. (2010b))
             log_p = np.log(pressure)
             return 684.2 - 92.3 * log_p + 4.32 * log_p**2
+
+    # could think of adding other species here e.g. with antoine equations
+    # for condensation?
     
     def calculate_thin_radiator_temp(self, pressure: float, 
                                      kappa: float = KAPPA_CO2, 
                                      albedo: float = 0.2) -> float:
         """
         Calculate thin radiator temperature for a given pressure.
+        As described in Wordsworth et al. (2010b).
         
         Args:
             pressure (float): Pressure in Pa
@@ -270,7 +279,7 @@ class Planet:
         return Ttr
     
     @property
-    def equilibrium_temperature(self) -> float:
+    def equilibrium_temperature(self, albedo: float = 0.2) -> float:
         """
         Calculate the equilibrium temperature using energy balance.
         
@@ -280,7 +289,6 @@ class Planet:
         Returns:
             float: Equilibrium temperature in K
         """
-        albedo = 0.2  # Fixed albedo
         F = self.star.F(self)  # Stellar flux at planet's distance
         F_eff = F * (1 - albedo)  # Effective flux accounting for albedo
         
@@ -297,7 +305,7 @@ class Planet:
         This method evolves the planet's atmosphere over time, accounting for:
         - Atmospheric escape due to XUV irradiation
         - Outgassing from the planetary interior
-        - Impact events that volatilize condensed gases
+        - Impact events that vaporise condensed gases
         
         Args:
             age (float): Time to evolve for in years

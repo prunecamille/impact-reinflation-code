@@ -17,26 +17,17 @@ The script saves results to a numpy npz file for later analysis and plotting.
 
 import numpy as np
 import sys
-from impactmodel import Planet, Star
+from planet_systems import get_planet_system
 
 # ==============================
 # USER-CONFIGURABLE PARAMETERS
 # ==============================
 
-# Stellar properties
-L_bol = 0.01  # Bolometric luminosity in solar units
-Rs = 0.25  # Stellar radius in solar radii
-t_sat = 1.3e9  # Saturation time in years
-
-# Planet properties
-planet_name = "Earth-like"
-planet_mass = 1.0  # Earth masses
-planet_radius = 1.0  # Earth radii
-semi_major_axis = 0.1  # AU
+# Planet system to use (see planet_systems.py for available systems)
+PLANET_SYSTEM = 'EARTH_LIKE'  # Options: 'TEST_PLANET', 'EARTH_LIKE', 'GJ3929b', etc.
 
 # Atmospheric evolution parameters
 outgassing_rate = 6.5e-4  # kg/m²/yr (default is Earth-like)
-escape_efficiency = 1e-2  # Escape efficiency parameter
 
 # Impact parameters
 impact_rate = 1e-9  # Impacts per year
@@ -60,28 +51,32 @@ def main():
     print("Impact-Reinflation Model: Single Run")
     print("=" * 60)
     
-    # Create star
-    print(f"\nCreating star with:")
-    print(f"  Bolometric luminosity: {L_bol} L_sun")
-    print(f"  Stellar radius: {Rs} R_sun")
-    print(f"  Saturation time: {t_sat:.2e} years")
-    star = Star(L_bol=L_bol, Rs=Rs, t_sat=t_sat)
+    # Get planet system
+    star, planet_template = get_planet_system(PLANET_SYSTEM)
     
-    # Create planet
-    print(f"\nCreating planet '{planet_name}' with:")
-    print(f"  Mass: {planet_mass} M_earth")
-    print(f"  Radius: {planet_radius} R_earth")
-    print(f"  Semi-major axis: {semi_major_axis} AU")
+    print(f"\nUsing planet system: {PLANET_SYSTEM}")
+    print(f"\nStellar properties:")
+    print(f"  Bolometric luminosity: {star.L_bol:.4f} L_sun")
+    print(f"  Stellar radius: {star.Rs:.3f} R_sun")
+    print(f"  Saturation time: {star.t_sat:.2e} years")
+    
+    # Create planet with custom outgassing rate
+    print(f"\nCreating planet '{planet_template.name}' with:")
+    print(f"  Mass: {planet_template.mass_earth:.2f} M_earth")
+    print(f"  Radius: {planet_template.radius_earth:.2f} R_earth")
+    print(f"  Semi-major axis: {planet_template.a_au:.4f} AU")
     print(f"  Outgassing rate: {outgassing_rate:.2e} kg/m²/yr")
-    print(f"  Escape efficiency: {escape_efficiency}")
+    print(f"  Escape efficiency: {planet_template.escape_efficiency}")
+    
+    from impactmodel import Planet
     planet = Planet(
-        name=planet_name,
-        mass=planet_mass,
-        radius=planet_radius,
+        name=planet_template.name,
+        mass=planet_template.mass,
+        radius=planet_template.radius,
         star=star,
-        a=semi_major_axis,
+        a=planet_template.a,
         outgassing_rate=outgassing_rate,
-        escape_efficiency=escape_efficiency
+        escape_efficiency=planet_template.escape_efficiency
     )
     
     # Add atmosphere (starting with no atmosphere)

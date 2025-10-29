@@ -17,7 +17,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib import rcParams
-from typing import Optional
+from matplotlib.colors import LogNorm
+from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
+from typing import Optional, Union
 
 # Set default plot style
 rcParams['font.size'] = 12
@@ -167,67 +170,197 @@ def plot_single_evolution(data_file: str, save_path: Optional[str] = None) -> No
     plt.close()
 
 
-def plot_montecarlo_summary(csv_file: str, save_path: Optional[str] = None) -> None:
-    """
-    Plot summary statistics from Monte Carlo results.
+def add_smoothed_contours(ax, outgassing_rates, impact_rates, inflation_data,
+                         contour_levels=[1, 10, 30], sigma=5.0, color='black'):
+    """Add smoothed contours to existing scatter plot."""
+    # Create grid for interpolation
+    xi = np.logspace(np.log10(outgassing_rates.min()), 
+                     np.log10(outgassing_rates.max()), 200)
+    yi = np.logspace(np.log10(impact_rates.min()), 
+                     np.log10(impact_rates.max()), 200)
+    xi_grid, yi_grid = np.meshgrid(xi, yi)
     
-    Creates a 2-panel plot showing:
-    - Heat map of inflation percentage vs outgassing and impact rates
-    - Scatter plot of final atmospheric mass vs parameters
+    # Interpolate and smooth
+    points = np.column_stack((outgassing_rates, impact_rates))
+    zi = griddata(points, inflation_data, (xi_grid, yi_grid), 
+                  method='cubic', fill_value=0)
+    zi = gaussian_filter(zi, sigma=sigma)
+    
+    # Add contours
+    contours = ax.contour(xi_grid, yi_grid, zi, levels=contour_levels, 
+                         colors=color, linewidths=2, alpha=1)
+    ax.clabel(contours, inline=True, fontsize=18, fmt='$\\mathbf{%.0f\\%%}$',
+              colors=color)
+
+
+def plot_montecarlo_summary(csv_file: str, save_path: Optional[str] = None,
+                            planet: Optional[Union['Planet', dict]] = None,
+                            age: Optional[float] = None) -> None:
+    """
+    Plot summary statistics from Monte Carlo results in notebook style.
+    
+    Creates a single-panel scatter plot matching the style from the impact paper notebook.
     
     Args:
         csv_file (str): Path to the CSV file with summary results
         save_path (str, optional): Path to save the figure. If None, displays the plot.
+        planet (Planet or dict, optional): Planet object or dict with planet properties.
+            If provided, adds top x-axis showing total CO2 inventory. Dict should have
+            'name', 'mass', 'radius', and 'surface_area' (or will use Planet object methods).
+        age (float, optional): Age of simulation in years. Needed for top x-axis calculation.
     """
     import pandas as pd
+    from impactmodel.constants import CURRENT_EARTH_OUTGASSING_RATE
     
     # Load data
     df = pd.read_csv(csv_file)
     
+    # Get outgassing rates (linear factors x Earth) - matching parameter_space_plot.py format
+    # CSV column is 'outgassing_rate_factor' (from run_montecarlo.py)
+    if 'outgassing_rate_factor' in df.columns:
+        outgassing_samples = df['outgassing_rate_factor'].values
+    elif 'outgassing_factor' in df.columns:
+        outgassing_samples = df['outgassing_factor'].values
+    elif 'outgassing_rate' in df.columns:
+        # Fallback: assume it's actual rate, convert to factor
+        outgassing_samples = df['outgassing_rate'].values / CURRENT_EARTH_OUTGASSING_RATE
+    else:
+        raise ValueError("CSV must contain 'outgassing_rate_factor', 'outgassing_factor', or 'outgassing_rate' column")
+    
+    # Get impact rates and convert to impacts/Gyr
+    impact_samples = df['impact_rate'].values
+    impact_samples_gyr = impact_samples * 1e9  # Convert from impacts/year to impacts/Gyr
+    
+    # Get inflation percentages
+    inflation_percentages = df['inflation_percentage'].values
+    
     # Create figure
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+    fig, ax = plt.subplots(1, 1, figsize=(7, 6))
     
-    # Panel 1: Heat map of inflation percentage
-    # Reshape data for heatmap
-    outgassing_unique = np.unique(df['outgassing_rate'])
-    impact_unique = np.unique(df['impact_rate'])
+    # Parameters matching parameter_space_plot.py
+    vmin = 1
+    vmax = 300
+    colormap = 'PuRd'
     
-    inflation_grid = np.zeros((len(outgassing_unique), len(impact_unique)))
-    for i, og in enumerate(outgassing_unique):
-        for j, ir in enumerate(impact_unique):
-            mask = (df['outgassing_rate'] == og) & (df['impact_rate'] == ir)
-            if mask.any():
-                inflation_grid[i, j] = df[mask]['inflation_percentage'].values[0]
+    # Planet name (bottom left)
+    if planet is not None:
+        if hasattr(planet, 'name'):
+            planet_name = planet.name
+        elif isinstance(planet, dict):
+            planet_name = planet.get('name', 'Planet')
+        else:
+            planet_name = 'Planet'
+        ax.text(0.015, 0.002, planet_name, fontsize=18, ha='left', va='bottom')
     
-    im1 = ax1.imshow(inflation_grid, aspect='auto', cmap='viridis', 
-                     origin='lower')
-    ax1.set_xlabel('Impact Rate')
-    ax1.set_ylabel('Outgassing Rate')
-    ax1.set_title('Inflation Percentage (%)')
+    # Scatter plot with correct units
+    sc = ax.scatter(
+        outgassing_samples, impact_samples_gyr,
+        c=inflation_percentages,
+        cmap=colormap, s=4,
+        norm=LogNorm(vmin=vmin, vmax=vmax)
+    )
     
-    # Set tick labels
-    ax1.set_xticks(range(len(impact_unique)))
-    ax1.set_xticklabels([f'{ir:.2e}' for ir in impact_unique], rotation=45)
-    ax1.set_yticks(range(len(outgassing_unique)))
-    ax1.set_yticklabels([f'{og/CURRENT_EARTH_OUTGASSING_RATE:.1f}x' 
-                         for og in outgassing_unique])
     
-    plt.colorbar(im1, ax=ax1)
+    # Set logarithmic scales
+    ax.set_xscale('log')
+    ax.set_yscale('log')
     
-    # Panel 2: Final atmospheric mass scatter plot
-    scatter = ax2.scatter(np.log10(df['impact_rate']), 
-                         np.log10(df['outgassing_rate']),
-                         c=df['inflation_percentage'], 
-                         s=50, cmap='viridis', alpha=0.7)
-    ax2.set_xlabel('log10(Impact Rate)')
-    ax2.set_ylabel('log10(Outgassing Rate / Earth rate)')
-    ax2.set_title('Final Atmospheric State')
-    plt.colorbar(scatter, ax=ax2, label='Inflation %')
+    # Labels with colors
+    ax.set_xlabel('CO$_2$ outgassing rate (x modern Earth)', fontsize=15, color='xkcd:scarlet', labelpad=1)
+    ax.set_ylabel('Impact rate (impacts/Gyr)', fontsize=15, color='xkcd:dark aqua', labelpad=1)
     
-    plt.tight_layout()
+    # Color the spines
+    ax.spines['bottom'].set_color('xkcd:scarlet')
+    ax.spines['left'].set_color('xkcd:dark aqua')
+    
+    # Ticks
+    ax.set_xticks([0.05, 1, 3])
+    ax.set_yticks([0.1, 1, 10, 100, 1000])
+    
+    # Tick labels with colors
+    ax.set_xticklabels(['0.05', '1', '3'], color='xkcd:scarlet', fontsize=15)
+    ax.set_yticklabels(['0.1', '1', '10', '100', '1000'], color='xkcd:dark aqua', fontsize=15)
+    
+    # Grid
+    ax.grid(True, which="both", ls="-", alpha=0.2)
+    
+    # Limits (matching parameter_space_plot.py)
+    ax.set_xlim(0.03, 3)
+    ax.set_ylim(0.1, 1000)
+    
+    # Add smoothed contours (using impacts/Gyr for contour calculation)
+    add_smoothed_contours(
+        ax, outgassing_samples, impact_samples_gyr, inflation_percentages,
+        contour_levels=[5, 25, 50], sigma=8.0, color='black'
+    )
+    
+    # Add top x-axis for cumulative outgassed CO2
+    # Use provided planet/age or defaults if not provided
+    if planet is None:
+        # Create default planet using typical values
+        from impactmodel.planet import Planet as PlanetClass
+        from impactmodel.star import Star
+        default_star = Star(L_bol=0.01, Rs=0.25, t_sat=1.3e9)
+        planet_obj = PlanetClass(
+            name='Planet',
+            mass=1.0,  # Earth masses
+            radius=1.0,  # Earth radii
+            star=default_star,
+            a=0.05  # AU
+        )
+        planet_obj.add_atmosphere(pressure0=0, condensed_volatile_thickness0=0)
+    elif isinstance(planet, dict):
+        from impactmodel.planet import Planet as PlanetClass
+        from impactmodel.star import Star
+        temp_star = Star(L_bol=0.01, Rs=0.25, t_sat=1.3e9)
+        planet_obj = PlanetClass(
+            name=planet.get('name', 'Planet'),
+            mass=planet.get('mass', 1.0),
+            radius=planet.get('radius', 1.0),
+            star=temp_star,
+            a=planet.get('distance', 0.05)
+        )
+        planet_obj.add_atmosphere(pressure0=0, condensed_volatile_thickness0=0)
+    else:
+        planet_obj = planet
+    
+    # Use provided age or default
+    if age is None:
+        age = 5e9  # Default 5 billion years
+    
+    # Calculate cumulative outgassed CO2 inventory as percentage of planetary mass
+    # outgassing_samples are already relative to Earth (linear factors), convert to actual rate
+    total_inventory = (outgassing_samples * CURRENT_EARTH_OUTGASSING_RATE * 
+                      planet_obj.surface_area * age / planet_obj.mass)
+    
+    x_axis_top = ax.twiny()
+    x_axis_top.set_xscale('log')
+    x_axis_top.set_xlim(total_inventory.min(), total_inventory.max())
+    
+    # Change colors of the axes
+    x_axis_top.spines['top'].set_color('xkcd:royal blue')
+    x_axis_top.spines['bottom'].set_color('xkcd:scarlet')
+    x_axis_top.spines['left'].set_color('xkcd:dark aqua')
+    
+    # Get ticks and set labels
+    xtopticks = x_axis_top.get_xticks()
+    x_axis_top.set_xticklabels([f'{tick*1e3:.2f}' if tick > 1e-5 else f'{tick*1e3:.1f}' for tick in xtopticks], 
+                               color='xkcd:royal blue', fontsize=15)
+    
+    # Set title
+    x_axis_top.set_title('Cumulative outgassed CO$_2$ (% of planetary mass)', 
+                        color='xkcd:royal blue', fontsize=15)
+    
+    # Add vertical colorbar on the right side
+    cbar_ax = fig.add_axes([0.9, 0.15, 0.02, 0.75])  # [left, bottom, width, height]
+    cbar = fig.colorbar(sc, cax=cbar_ax, orientation='vertical')
+    cbar.set_label('Atmospheric inflation (%)', fontsize=15, labelpad=1)
+    
+    # Adjust layout to make room for colorbar on right and left labels
+    plt.subplots_adjust(top=0.9, bottom=0.15, left=0.13, right=0.88)
     
     if save_path:
-        plt.savefig(save_path, dpi=150)
+        plt.savefig(save_path, dpi=300)
         print(f"Figure saved to: {save_path}")
     else:
         plt.show()

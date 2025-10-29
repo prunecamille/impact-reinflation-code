@@ -35,13 +35,32 @@ The package uses only standard scientific Python libraries: numpy, scipy, and ma
 
 ### Single Run
 
+You can use predefined planet systems from `planet_systems.py`:
+
+```python
+from planet_systems import get_planet_system, get_planet_config
+from impactmodel import Planet
+
+# Get a predefined system (options: 'TEST_PLANET', 'EARTH_LIKE', 'GJ3929b', 'LTT1445Ac', 'LTT1445Ab')
+star, _ = get_planet_system('EARTH_LIKE')
+config = get_planet_config('EARTH_LIKE')
+planet = Planet(
+    name=config['name'],
+    mass=config['mass'],  # Earth masses
+    radius=config['radius'],  # Earth radii
+    star=star,
+    a=config['distance'],  # AU
+    outgassing_rate=6.5e-4,  # kg/m²/yr
+    escape_efficiency=config['escape_efficiency']
+)
+```
+
+Or create custom planet/star objects:
+
 ```python
 from impactmodel import Planet, Star
 
-# Create a star
 star = Star(L_bol=0.01, Rs=0.25, t_sat=1.3e9)
-
-# Create a planet
 planet = Planet(
     name="Earth-like",
     mass=1.0,           # Earth masses
@@ -71,6 +90,8 @@ Or use the provided script:
 python run_single.py
 ```
 
+Configure the planet system at the top of the script using `PLANET_SYSTEM` (see `planet_systems.py` for available systems).
+
 ### Monte Carlo Simulation
 
 Run a parameter sweep over outgassing and impact rates:
@@ -79,7 +100,7 @@ Run a parameter sweep over outgassing and impact rates:
 python run_montecarlo.py
 ```
 
-This will generate results in the `montecarlo_results/` directory.
+This will generate results in the `montecarlo_results/` directory. You can configure the planet system and parameter ranges at the top of `run_montecarlo.py`.
 
 ### Plotting Results
 
@@ -103,17 +124,18 @@ plot_single_evolution('results_single.npz', save_path='evolution.png')
 
 ### In `run_single.py`:
 
-- **Stellar properties**: `L_bol`, `Rs`, `t_sat`
-- **Planet properties**: `planet_mass`, `planet_radius`, `semi_major_axis`
+- **Planet system**: Choose from predefined systems in `planet_systems.py` via `PLANET_SYSTEM` variable
 - **Atmospheric evolution**: `outgassing_rate`, `escape_efficiency`
 - **Impacts**: `impact_rate`
 - **Simulation**: `age`, `dt`, `method`
 
 ### In `run_montecarlo.py`:
 
-- Parameter ranges for `outgassing_rate` and `impact_rate`
-- Number of samples for each parameter
-- Output directory and file naming
+- **Planet system**: Choose from predefined systems in `planet_systems.py` via `PLANET_SYSTEM` variable
+- **Parameter ranges**: `outgassing_rate_min/max` (log10 relative to Earth), `impact_rate_min/max` (log10 impacts/year)
+- **Number of samples**: `n_samples`
+- **Evolution parameters**: `age`, `dt`, `method`
+- **Output**: `output_dir`, `output_prefix`
 
 ## Model Physics
 
@@ -173,9 +195,15 @@ impact-reinflation-code/
 ├── run_single.py         # Single run script
 ├── run_montecarlo.py     # Monte Carlo script
 ├── plot_results.py       # Plotting utilities
+├── planet_systems.py     # Predefined planet and star systems
 ├── requirements.txt      # Dependencies
+├── demo/                 # Demo scripts for recreating paper plots (not required for use)
+│   ├── parameter_space_plot.py  # Multi-planet parameter space exploration
+│   └── 3earths_plot.py  # Three Earth-like planets at different distances
 └── README.md            # This file
 ```
+
+**Note:** The `demo/` folder contains scripts used to recreate plots from the publication and is not required for general use of the package. Output directories like `montecarlo_results/` are excluded from version control (see `.gitignore`).
 
 ## Examples
 
@@ -208,3 +236,7 @@ MIT License - see LICENSE file
 ## Author
 
 Prune Camille August
+
+## Acknowledgments
+
+Part of this code was developed with the assistance of Cursor AI (an AI-powered code editor).

@@ -84,11 +84,11 @@ PLANETS = {
 
 # Parameter ranges for Monte Carlo
 # Outgassing rates: log10 relative to Earth's current outgassing rate
-outgassing_log_min = -2.0  # 0.01x Earth
-outgassing_log_max = 1.0   # ~3x Earth
+outgassing_log_min = -1.5  # 0.03x Earth
+outgassing_log_max = 0.5   # ~3x Earth
 
 # Impact rates: log10 impacts per year (matching notebook ranges)
-impact_log_min = -12  # log10(impacts/year)
+impact_log_min = -10  # log10(impacts/year)
 impact_log_max = -6   # log10(impacts/year)
 
 # Number of samples for Monte Carlo
@@ -106,8 +106,8 @@ os.makedirs(output_dir, exist_ok=True)
 print("=" * 80)
 print("Parameter Space Monte Carlo Simulation")
 print("=" * 80)
-print(f"Outgassing range: {outgassing_log_min} to {outgassing_log_max} (log10)")
-print(f"Impact rate range: {impact_log_min} to {impact_log_max} (log10 impacts/year)")
+print(f"Outgassing range: {10**outgassing_log_min} to {10**outgassing_log_max} (x Earth)")
+print(f"Impact rate range: {10**impact_log_min*1e9} to {10**impact_log_max*1e9} (impacts/Gyr)")
 print(f"Number of random samples per planet: {n_samples}")
 print("=" * 80)
 

@@ -27,16 +27,16 @@ L_SUN = 3.828e26  # W (bolometric luminosity)
 LATENT_HEAT_CO2 = 571e3  # J/kg (latent heat of sublimation)
 CP_CO2 = 820  # J/(kg·K) (specific heat capacity)
 T_SUBLIMATION_CO2 = 195  # K (sublimation temperature)
-KAPPA_CO2 = 1.6e-4  # m²/kg (CO2 opacity)
-CO2_TRIPLE_POINT_PRESSURE = 5.185e5  # Pa
-CO2_TRIPLE_POINT_TEMP = 216.592  # K
+KAPPA_CO2 = 1.6e-4  # m²/kg (CO2 opacity, see Wordsworth et al. (2010b))
+CO2_TRIPLE_POINT_PRESSURE = 5.185e5  # Pa (CO2 triple point pressure, see Wordsworth et al. (2010b))
+CO2_TRIPLE_POINT_TEMP = 216.592  # K (CO2 triple point temperature, see Wordsworth et al. (2010b))
 
 # Unit conversions
 AU_TO_M = 1.496e11  # meters per astronomical unit
 SECONDS_PER_YEAR = 365.25 * 24 * 60 * 60  # seconds per year
 
 # Earth reference values
-CURRENT_EARTH_OUTGASSING_RATE = 6.5e-4  # kg/m²/yr
+CURRENT_EARTH_OUTGASSING_RATE = 6.5e-4  # kg/m²/yr (middle ground value from Wallman & Aloisi (2012))
 EARTH_INSOLATION = 1361  # W/m²
 
 # Physical constants
